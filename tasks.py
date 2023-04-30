@@ -15,12 +15,21 @@ celery_app = Celery(
 
 @celery_app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
-    pass
+    sender.add_periodic_task(30.0, sync_work_order.s())
 
 @celery_app.task
 def attach_drawings(wo_id: str):
     print(f"Attaching drawings to work order {wo_id}")
-    
+    session = Session()
+    wo = session.query(WorkOrder).filter(WorkOrder.id == wo_id).first()
+    wo.attached_planes = "attached_planes_ok"
+    session.commit()
+    notify.delay(wo_id)
+
+
+@celery_app.task
+def notify(wo_id: str):
+    print(f"Notify work order {wo_id}")
 
 def create_work_order(
         db: Session, 
